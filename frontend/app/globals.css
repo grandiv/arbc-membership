@@ -1,0 +1,210 @@
+@import "tailwindcss";
+
+/* =========================================================================
+   TANA ARABICA — Membership. Reuses the brand system from arbc-landing-page.
+   Gold ground · cocoa ink · caramel actions. Montserrat display / Inter body.
+   ========================================================================= */
+
+@theme {
+  --font-display: var(--font-montserrat), "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter), "Inter", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif;
+}
+
+:root {
+  --gold: #fcd08b;
+  --gold-2: #f6be66;
+  --cocoa: #8e5229;
+  --cocoa-2: #5c3012;
+  --caramel: #a36233;
+  --white: #ffffff;
+  --espresso: #271710;
+  --cream: #fff6e6;
+  --cream-2: #fbead0;
+  --sage: #3f6b4c;
+  --danger: #b3402e;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --maxw: 1100px;
+  --radius: 18px;
+  --accent: var(--caramel);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--gold);
+  /* cocoa-2 (not cocoa) so body text clears WCAG AA on the gold ground
+     (cocoa #8e5229 is only 4.28:1; cocoa-2 #5c3012 is ~7.6:1). */
+  color: var(--cocoa-2);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--cocoa-2);
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+
+::selection { background: var(--cocoa); color: var(--gold); }
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 clamp(18px, 5vw, 48px); }
+
+/* ---- Outlined signature headline ---- */
+.outlined {
+  color: var(--white);
+  -webkit-text-stroke: 2.5px var(--cocoa);
+  paint-order: stroke fill;
+}
+
+/* ---- Buttons ---- */
+.btn {
+  --lift: 0px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.55em;
+  font-family: var(--font-display); font-weight: 600; font-size: 0.96rem;
+  padding: 0.9em 1.5em; border-radius: 999px; border: 1.5px solid transparent;
+  cursor: pointer; white-space: nowrap; transform: translateY(var(--lift));
+  transition: transform .26s var(--ease), box-shadow .26s var(--ease),
+    background-color .26s var(--ease), color .26s var(--ease), border-color .26s var(--ease);
+}
+.btn--primary { background: var(--accent); color: var(--white); box-shadow: 0 6px 18px -10px rgba(92,48,18,.5); }
+.btn--primary:hover { --lift: -3px; box-shadow: 0 16px 32px -14px rgba(92,48,18,.55); }
+.btn--ghost { background: transparent; color: var(--cocoa-2); border-color: rgba(92,48,18,.5); }
+.btn--ghost:hover { --lift: -3px; background: rgba(92,48,18,.06); border-color: var(--cocoa-2); }
+.btn:active { --lift: -1px; transition-duration: .09s; }
+.btn:disabled { opacity: .55; cursor: not-allowed; --lift: 0px; box-shadow: none; }
+.btn:focus-visible { outline: 3px solid var(--cocoa); outline-offset: 3px; }
+.btn--block { width: 100%; }
+/* Compact variant for secondary/header actions (e.g. reload). */
+.btn--sm { padding: 0.5em 0.9em; font-size: 0.85rem; gap: 0.4em; }
+
+/* ---- Card / surface ---- */
+.card {
+  background: var(--cream);
+  border: 1.5px solid var(--cream-2);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 60px -36px rgba(92,48,18,.45);
+}
+
+/* ---- Form fields ---- */
+.field { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
+.field > label { font-size: 0.82rem; font-weight: 600; color: var(--cocoa); letter-spacing: 0.01em; }
+.input {
+  font-family: var(--font-body); font-size: 1rem; color: var(--cocoa-2);
+  background: var(--white); border: 1.5px solid var(--cream-2); border-radius: 12px;
+  padding: 0.8em 1em; width: 100%; transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+.input::placeholder { color: rgba(92,48,18,.55); }
+.input:focus { outline: none; border-color: var(--caramel); box-shadow: 0 0 0 3px rgba(163,98,51,.15); }
+
+/* ---- Status pills + notices ---- */
+.pill { display: inline-flex; align-items: center; gap: 0.4em; font-size: 0.78rem; font-weight: 600;
+  padding: 0.3em 0.8em; border-radius: 999px; }
+.pill--ok { background: rgba(63,107,76,.14); color: var(--sage); }
+.pill--warn { background: rgba(179,64,46,.12); color: var(--danger); }
+.notice { border-radius: 14px; padding: 1em 1.15em; font-size: 0.95rem; }
+.notice--ok { background: rgba(63,107,76,.1); color: var(--sage); border: 1.5px solid rgba(63,107,76,.25); }
+.notice--err { background: rgba(179,64,46,.08); color: var(--danger); border: 1.5px solid rgba(179,64,46,.25); }
+
+/* ---- Voucher code chip ---- */
+.code {
+  font-family: var(--font-display); font-weight: 800; letter-spacing: 0.08em;
+  font-size: 1.6rem; color: var(--espresso); background: var(--gold);
+  border: 2px dashed var(--caramel); border-radius: 14px; padding: 0.6em 1em;
+  display: inline-block; text-align: center;
+}
+
+/* ---- Simple table ---- */
+.table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.table th { text-align: left; font-family: var(--font-display); font-size: 0.74rem; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--cocoa); padding: 0.7em 0.8em; border-bottom: 2px solid var(--cream-2); }
+.table td { padding: 0.75em 0.8em; border-bottom: 1px solid var(--cream-2); color: var(--cocoa-2); }
+.table tr:last-child td { border-bottom: none; }
+
+/* ---- Nav ---- */
+.nav { display: flex; gap: 0.5rem; align-items: center; }
+.nav a { font-family: var(--font-display); font-weight: 600; font-size: 0.9rem; padding: 0.5em 0.95em;
+  border-radius: 999px; color: var(--cocoa-2); transition: background-color .2s var(--ease); }
+.nav a:hover { background: rgba(92,48,18,.08); }
+.nav a.active { background: var(--cocoa-2); color: var(--gold); }
+
+/* ---- Stat cards ---- */
+.stat { background: var(--white); border: 1.5px solid var(--cream-2); border-radius: 14px; padding: 1.1rem 1.25rem; }
+.stat__n { font-family: var(--font-display); font-weight: 800; font-size: 1.9rem; color: var(--cocoa-2); line-height: 1; }
+.stat__l { font-size: 0.8rem; color: var(--cocoa); margin-top: 0.35rem; font-weight: 600; }
+
+.muted { color: rgba(92,48,18,.78); }
+.grid-2 { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+/* ---- Horizontal-scroll wrapper for wide tables on small screens ---- */
+.table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-wrap .table { min-width: 480px; }
+
+/* ====================================================================
+   RESPONSIVE — mobile-first refinements. Base styles target phones;
+   these tune layout up and down at the seams.
+   ==================================================================== */
+
+/* Phones (≤640px) */
+@media (max-width: 640px) {
+  body { font-size: 15px; }
+
+  /* Header: brand on top, nav full-width below, evenly spread + tappable. */
+  .nav { width: 100%; justify-content: space-between; gap: 0.3rem; }
+  .nav a { flex: 1; text-align: center; padding: 0.6em 0.4em; font-size: 0.85rem; }
+
+  /* Stat cards: 2-up instead of cramped 4-up auto-fit. */
+  .grid-2 { grid-template-columns: repeat(2, 1fr); gap: 0.7rem; }
+  .stat { padding: 0.9rem 1rem; }
+  .stat__n { font-size: 1.45rem; }
+
+  .code { font-size: 1.3rem; letter-spacing: 0.05em; }
+  .card { border-radius: 14px; }
+
+  /* Tables → stacked cards on phones (no horizontal scrolling). Each row
+     becomes a labelled block via the per-cell data-label attribute. */
+  .table--cards thead { display: none; }
+  .table--cards, .table--cards tbody, .table--cards tr, .table--cards td { display: block; width: 100%; }
+  /* Must out-specify `.table-wrap .table { min-width: 480px }` (0,2,0), else the
+     stuck min-width inflates the whole viewport past the phone width. */
+  .table-wrap .table--cards { min-width: 0; }
+  .table--cards tr { border: 1.5px solid var(--cream-2); border-radius: 12px; padding: 0.5rem 0.85rem; margin-bottom: 0.7rem; background: var(--white); }
+  .table--cards td { border: none; padding: 0.35em 0; display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; text-align: right; min-width: 0;
+    /* `anywhere` (not break-word) shrinks the flex item's min-content size so a
+       long unbreakable value (e.g. an email) wraps instead of overflowing. */
+    overflow-wrap: anywhere; word-break: break-word; }
+  .table--cards td::before {
+    content: attr(data-label); text-align: left; flex: 0 0 auto;
+    font-family: var(--font-display); font-weight: 700; font-size: 0.7rem;
+    text-transform: uppercase; letter-spacing: 0.04em; color: var(--cocoa);
+  }
+  .table-wrap:has(.table--cards) { overflow-x: visible; } /* no scroll in card mode */
+}
+
+/* Very small phones (≤380px) — let stat cards stack fully if needed. */
+@media (max-width: 380px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
+/* Larger touch targets on coarse pointers (phones/tablets). */
+@media (pointer: coarse) {
+  .btn { padding: 1em 1.6em; }
+  /* …but keep compact buttons compact (this rule comes after .btn so it wins). */
+  .btn--sm { padding: 0.6em 1em; }
+  .input { padding: 0.9em 1em; font-size: 16px; } /* 16px avoids iOS zoom-on-focus */
+}
+
+/* Compact buttons go icon-only on small phones to save header space. */
+@media (max-width: 420px) {
+  .btn--sm .btn__label { display: none; }
+}

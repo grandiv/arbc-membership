@@ -1,0 +1,11 @@
+# Keep the build context lean. .kzcy/ is staged in (needed); everything heavy
+# or irrelevant is excluded.
+**/node_modules
+**/.next
+**/out
+**/dist
+**/.git
+**/.DS_Store
+frontend/.env*
+backend/.env
+*.log

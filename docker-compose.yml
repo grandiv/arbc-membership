@@ -1,0 +1,106 @@
+# arbc-membership — full stack. Only the frontend container is published to the
+# host (127.0.0.1); Mongo + the engines + the BFF stay on the internal docker
+# network. Engine/BFF builds COPY from .kzcy/ (KreaZcy libs + engine sources),
+# so run `scripts/stage.sh` before `docker compose build`.
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: arbc-mongo
+    ports:
+      - "127.0.0.1:27049:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  konsumzcy:
+    container_name: arbc-konsumzcy
+    build:
+      context: .
+      dockerfile: konsumzcy.Dockerfile
+    environment:
+      PORT: "8084"
+      MONGO_URI: mongodb://mongo:27017
+      DB_NAME: konsumzcy
+      AUTH_METHOD: none
+      GIN_MODE: release
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  promozcy:
+    container_name: arbc-promozcy
+    build:
+      context: .
+      dockerfile: promozcy.Dockerfile
+    environment:
+      PORT: "8082"
+      MONGO_URI: mongodb://mongo:27017
+      DB_NAME: promozcy
+      KAFKA_BROKERS: ""
+      AUTH_METHOD: none
+      GIN_MODE: release
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  agregazcy:
+    container_name: arbc-agregazcy
+    build:
+      context: .
+      dockerfile: agregazcy.Dockerfile
+    environment:
+      AGREGAZCY_MONGO_URI: mongodb://mongo:27017
+      AGREGAZCY_DB_NAME: agregazcy
+      AUTH_METHOD: none
+      GIN_MODE: release
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backend:
+    container_name: arbc-backend
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    environment:
+      PORT: "8080"
+      KONSUMZCY_URL: http://konsumzcy:8084
+      PROMOZCY_URL: http://promozcy:8082
+      AGREGAZCY_URL: http://agregazcy:5900
+      # NotifikaZcy is stubbed until email is wired (see README); BFF no-ops.
+      NOTIFY_ENABLED: "false"
+      DEFAULT_CAMPAIGN: launch-free-coffee
+      COFFEE_PRICE: "20000"
+      GIN_MODE: release
+    depends_on:
+      konsumzcy:
+        condition: service_started
+      promozcy:
+        condition: service_started
+      agregazcy:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    container_name: arbc-frontend
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    ports:
+      # Host reverse-proxy (Certbot/nginx) fronts the public domain → here.
+      - "127.0.0.1:3070:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

@@ -1,0 +1,10 @@
+# Staged KreaZcy sources for Docker builds (regenerate with scripts/stage.sh).
+/.kzcy/
+
+# Env files
+**/.env
+**/.env.local
+!**/.env.example
+
+.DS_Store
+*.log
