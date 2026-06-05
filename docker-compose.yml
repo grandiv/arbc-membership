@@ -97,7 +97,7 @@ services:
       dockerfile: frontend.Dockerfile
     ports:
       # Host reverse-proxy (Certbot/nginx) fronts the public domain → here.
-      - "127.0.0.1:3070:80"
+      - "127.0.0.1:3071:80"
     depends_on:
       - backend
     restart: unless-stopped

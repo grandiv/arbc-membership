@@ -37,13 +37,13 @@ bash scripts/deploy.sh --target prod
 
 ## Host nginx (TLS termination)
 
-The frontend container listens on `127.0.0.1:3070`. Front it:
+The frontend container listens on `127.0.0.1:3071`. Front it:
 
 ```nginx
 server {
     server_name membership.tanaarabica.com;   # your domain
     location / {
-        proxy_pass http://127.0.0.1:3070;
+        proxy_pass http://127.0.0.1:3071;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -64,7 +64,7 @@ Dockerfile here already sets `GOPROXY=https://goproxy.io,direct` +
 
 | Container | Host port | Notes |
 |---|---|---|
-| frontend (nginx) | 3070 | the only public-facing one |
+| frontend (nginx) |  3071 | the only public-facing one |
 | mongo | 27049 | for debugging/backup only |
 
 Engines (8084/8082/5900) + BFF (8080) have **no** host port — internal network only.

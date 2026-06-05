@@ -48,4 +48,4 @@ ssh "$REMOTE" "cd $REMOTE_DIR && docker compose build && docker compose up -d"
 
 echo "→ waiting for health"
 ssh "$REMOTE" "cd $REMOTE_DIR && sleep 8 && docker compose ps"
-echo "✓ deployed. Front the published 127.0.0.1:3070 with your host nginx + TLS."
+echo "✓ deployed. Front the published 127.0.0.1:3071 with your host nginx + TLS."

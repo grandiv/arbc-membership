@@ -27,7 +27,7 @@ redemptions deepen the profile for loyalty. The voucher is gated on the data.
             └───────── Mongo ───────────┘
 ```
 
-Only the frontend container is published (`127.0.0.1:3070`); everything else is
+Only the frontend container is published (`127.0.0.1:3071`); everything else is
 internal to the docker network.
 
 | Dir | What |
@@ -46,7 +46,7 @@ internal to the docker network.
 bash scripts/stage.sh        # populate .kzcy/ from ../../KreaZcy
 docker compose build
 docker compose up -d
-open http://localhost:3070
+open http://localhost:3071
 docker compose down -v       # stop + wipe data
 ```
 
