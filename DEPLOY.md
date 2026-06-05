@@ -4,6 +4,11 @@ Mirrors the truck-maintenance / to-ijul deploy model: build the whole stack with
 Docker Compose on the target host, publish only the frontend container to
 `127.0.0.1`, and front it with the host's nginx + Certbot for TLS.
 
+> **Live:** https://arbc-membership.izcy.tech (izcy-engine, frontend on
+> `127.0.0.1:3071`, Mongo `127.0.0.1:27049`, rest internal; Cloudflare edge +
+> Let's Encrypt origin cert, HTTP→HTTPS). Deploy dir `/home/AgentZcy/arbc-membership`.
+> Redeploy: `bash scripts/deploy.sh --target staging`.
+
 ## Prerequisites (remote host)
 
 - Docker + Docker Compose v2
