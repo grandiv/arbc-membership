@@ -9,6 +9,7 @@ export type Member = {
   phone: string;
   name: string;
   email?: string | null;
+  date_of_birth?: string | null;
   order_count: number;
   total_spend: number;
 };
@@ -57,7 +58,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  register: (input: { phone: string; name: string; email?: string; ig_handle?: string }) =>
+  register: (input: { phone: string; name: string; email?: string; ig_handle?: string; dob?: string }) =>
     call<RegisterResult>("/api/register", { method: "POST", body: JSON.stringify(input) }),
 
   lookup: (phone: string) =>

@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import { api, ApiError, type RegisterResult } from "@/lib/api";
 
 export default function JoinPage() {
-  const [form, setForm] = useState({ name: "", phone: "", email: "", ig_handle: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", ig_handle: "", dob: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResult | null>(null);
@@ -24,6 +24,7 @@ export default function JoinPage() {
         phone: form.phone.trim(),
         email: form.email.trim() || undefined,
         ig_handle: form.ig_handle.trim() || undefined,
+        dob: form.dob || undefined,
       });
       setResult(res);
     } catch (err) {
@@ -73,6 +74,11 @@ export default function JoinPage() {
               <div className="field">
                 <label htmlFor="email">Email</label>
                 <input id="email" className="input" type="email" value={form.email} onChange={set("email")} placeholder="email@kamu.com (opsional)" />
+              </div>
+              <div className="field">
+                <label htmlFor="dob">Tanggal Lahir 🎂</label>
+                <input id="dob" className="input" type="date" value={form.dob} onChange={set("dob")} max={new Date().toISOString().slice(0, 10)} />
+                <span className="muted" style={{ fontSize: "0.78rem" }}>Buat kejutan & promo ulang tahun (opsional)</span>
               </div>
               <div className="field">
                 <label htmlFor="ig">Instagram</label>

@@ -17,6 +17,7 @@ type registerRequest struct {
 	Name     string  `json:"name" binding:"required"`
 	Email    *string `json:"email,omitempty"`
 	IGHandle *string `json:"ig_handle,omitempty"`
+	Dob      *string `json:"dob,omitempty"` // ISO "YYYY-MM-DD"; for birthday promos
 }
 
 // RegisterMember upserts the member in KonsumZcy, issues a per-member voucher in
@@ -30,7 +31,7 @@ func (h *Handlers) RegisterMember(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// 1. Store the data (the thing we actually want).
-	member, err := h.Konsum.RegisterProfile(ctx, req.Phone, req.Name, req.Email)
+	member, err := h.Konsum.RegisterProfile(ctx, req.Phone, req.Name, req.Email, req.Dob)
 	if err != nil {
 		fail(c, err)
 		return
@@ -67,6 +68,11 @@ func (h *Handlers) RegisterMember(c *gin.Context) {
 	meta := map[string]any{"campaign": campaign}
 	if req.IGHandle != nil {
 		meta["ig_handle"] = *req.IGHandle
+	}
+	// Tag the birth month (e.g. "07") so birthday cohorts are queryable for
+	// monthly birthday-promo campaigns, without exposing the full DOB.
+	if req.Dob != nil && len(*req.Dob) >= 7 {
+		meta["birth_month"] = (*req.Dob)[5:7]
 	}
 	h.Agrega.Emit("member.registered", "member", meta)
 	h.Agrega.Emit("voucher.issued", "promo", map[string]any{"campaign": campaign, "code": code})

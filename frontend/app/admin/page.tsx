@@ -137,13 +137,14 @@ export default function AdminPage() {
           ) : (
             <div className="table-wrap">
               <table className="table table--cards">
-                <thead><tr><th>Nama</th><th>HP</th><th>Email</th><th>Kunjungan</th><th>Belanja</th></tr></thead>
+                <thead><tr><th>Nama</th><th>HP</th><th>Email</th><th>Lahir</th><th>Kunjungan</th><th>Belanja</th></tr></thead>
                 <tbody>
                   {members.map((m) => (
                     <tr key={m.id}>
                       <td data-label="Nama" style={{ fontWeight: 600 }}>{m.name}</td>
                       <td data-label="HP">{m.phone}</td>
                       <td data-label="Email" className="muted">{m.email ?? "—"}</td>
+                      <td data-label="Lahir">{m.date_of_birth ?? "—"}</td>
                       <td data-label="Kunjungan">{m.order_count}</td>
                       <td data-label="Belanja">Rp{m.total_spend.toLocaleString("id-ID")}</td>
                     </tr>

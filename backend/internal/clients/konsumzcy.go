@@ -16,6 +16,7 @@ type Customer struct {
 	Name          string  `json:"name"`
 	Email         *string `json:"email,omitempty"`
 	Address       *string `json:"address,omitempty"`
+	DateOfBirth   *string `json:"date_of_birth,omitempty"`
 	OrderCount    int     `json:"order_count"`
 	TotalSpend    float64 `json:"total_spend"`
 	LastOrderDate *string `json:"last_order_date,omitempty"`
@@ -27,10 +28,13 @@ type customerEnvelope struct {
 
 // RegisterProfile upserts a member profile by phone, independent of any order.
 // Calls KonsumZcy POST /api/customers.
-func (k *KonsumZcy) RegisterProfile(ctx context.Context, phone, name string, email *string) (*Customer, error) {
+func (k *KonsumZcy) RegisterProfile(ctx context.Context, phone, name string, email, dateOfBirth *string) (*Customer, error) {
 	body := map[string]any{"phone": phone, "name": name}
 	if email != nil {
 		body["email"] = *email
+	}
+	if dateOfBirth != nil {
+		body["date_of_birth"] = *dateOfBirth
 	}
 	var env customerEnvelope
 	if err := k.h.do(ctx, "KonsumZcy", "POST", "/api/customers", body, &env); err != nil {
