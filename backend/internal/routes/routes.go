@@ -27,7 +27,11 @@ type Handlers struct {
 func (h *Handlers) Register(r *gin.Engine) {
 	api := r.Group("/api")
 	{
-		// Public — the data-for-value loop + barista flow.
+		// Campaign — the single staff claim action (register + redeem).
+		api.POST("/claim", h.Claim)
+		api.GET("/campaign", h.ActiveCampaignInfo)
+		// Generic primitives (kept for the future membership product; not used by
+		// the campaign-only FE).
 		api.POST("/register", h.RegisterMember)
 		api.POST("/lookup", h.Lookup)
 		api.POST("/redeem", h.Redeem)

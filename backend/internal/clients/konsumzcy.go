@@ -43,10 +43,30 @@ func (k *KonsumZcy) RegisterProfile(ctx context.Context, phone, name string, ema
 	return &env.Data, nil
 }
 
-// RawGet proxies an arbitrary GET to KonsumZcy and decodes into out. Used by the
-// admin members list, which forwards the upstream query string verbatim.
+// RawGet proxies an arbitrary GET to KonsumZcy and decodes into out.
 func (k *KonsumZcy) RawGet(ctx context.Context, path string, out any) error {
 	return k.h.do(ctx, "KonsumZcy", "GET", path, nil, out)
+}
+
+// CustomerList mirrors KonsumZcy's paginated customer list response.
+type CustomerList struct {
+	Data  []Customer `json:"data"`
+	Total int64      `json:"total"`
+	Limit int        `json:"limit"`
+	Skip  int        `json:"skip"`
+}
+
+// ListCustomers fetches the member list (typed), forwarding the query string.
+func (k *KonsumZcy) ListCustomers(ctx context.Context, rawQuery string) (*CustomerList, error) {
+	path := "/api/customers"
+	if rawQuery != "" {
+		path += "?" + rawQuery
+	}
+	var out CustomerList
+	if err := k.h.do(ctx, "KonsumZcy", "GET", path, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // GetByPhone fetches a member profile by phone for the barista lookup.

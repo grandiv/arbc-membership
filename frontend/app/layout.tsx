@@ -17,8 +17,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Tana Arabica — Membership",
-  description: "Daftar member Tana Arabica, kumpulkan poin, tukar kopi gratis.",
+  title: "Tanarabica — 200 Kopi Gratis",
+  description: "Kampanye 200 kopi gratis Tanarabica.",
   robots: { index: false, follow: false },
 };
 
