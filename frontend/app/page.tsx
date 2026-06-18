@@ -77,7 +77,7 @@ export default function ClaimPage() {
                 Klaim <span className="outlined">Kopi Gratis</span>
               </h1>
               <p className="muted" style={{ maxWidth: 380, margin: "0 auto" }}>
-                Isikan data pelanggan untuk klaim 1 cup gratis. Satu nomor satu cup.
+                Isikan data pelanggan untuk klaim 1 cup gratis.
               </p>
             </div>
 
