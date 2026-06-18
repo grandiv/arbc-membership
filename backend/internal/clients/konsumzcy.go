@@ -27,14 +27,18 @@ type customerEnvelope struct {
 }
 
 // RegisterProfile upserts a member profile by phone, independent of any order.
-// Calls KonsumZcy POST /api/customers.
-func (k *KonsumZcy) RegisterProfile(ctx context.Context, phone, name string, email, dateOfBirth *string) (*Customer, error) {
+// Calls KonsumZcy POST /api/customers. `address` carries domisili (a generic
+// customer location field); `dateOfBirth` is the durable form of age (umur).
+func (k *KonsumZcy) RegisterProfile(ctx context.Context, phone, name string, email, dateOfBirth, address *string) (*Customer, error) {
 	body := map[string]any{"phone": phone, "name": name}
 	if email != nil {
 		body["email"] = *email
 	}
 	if dateOfBirth != nil {
 		body["date_of_birth"] = *dateOfBirth
+	}
+	if address != nil {
+		body["address"] = *address
 	}
 	var env customerEnvelope
 	if err := k.h.do(ctx, "KonsumZcy", "POST", "/api/customers", body, &env); err != nil {

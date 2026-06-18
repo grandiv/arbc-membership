@@ -53,7 +53,7 @@ export default function JoinScreen() {
             <h2 style={{ marginTop: "0.75rem" }}>Selamat datang, {result.member.name}! 🎉</h2>
             <p className="muted" style={{ marginTop: "0.25rem" }}>Kamu sekarang member Tanarabica.</p>
             {campaign?.active && (
-              <div style={{ marginTop: "1.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--cream-2)" }}>
+              <div style={{ marginTop: "1.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--line)" }}>
                 <div className="code">☕ 1 KOPI GRATIS</div>
                 <p style={{ marginTop: "1.25rem" }}>
                   Tunjukkan <strong>nomor HP-mu</strong> ke barista di booth untuk klaim.
@@ -67,7 +67,7 @@ export default function JoinScreen() {
         ) : (
           <>
             <div style={{ marginBottom: "1.5rem" }}>
-              <Coffee size={30} color="var(--caramel)" />
+              <Coffee size={30} color="var(--primary)" />
               <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.4rem)", margin: "0.5rem 0" }}>
                 Jadi <span className="outlined">member</span> Tanarabica.
               </h1>

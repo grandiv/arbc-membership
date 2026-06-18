@@ -1,8 +1,10 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -18,8 +20,10 @@ import (
 // keyed by phone, with other profile fields left null to be enriched later.
 // Once-per-phone + the 200 cap are enforced by PromoZcy.
 type claimRequest struct {
-	Name  string `json:"name" binding:"required"`
-	Phone string `json:"phone" binding:"required"`
+	Name     string `json:"name" binding:"required"`
+	Phone    string `json:"phone" binding:"required"`
+	Domisili string `json:"domisili"` // → KonsumZcy address (generic location)
+	Umur     int    `json:"umur"`     // age → derived date_of_birth (durable form)
 }
 
 func (h *Handlers) Claim(c *gin.Context) {
@@ -32,8 +36,20 @@ func (h *Handlers) Claim(c *gin.Context) {
 	phone := strings.TrimSpace(req.Phone)
 	name := strings.TrimSpace(req.Name)
 
+	// Map brand fields → generic KonsumZcy fields (no engine change):
+	//   Domisili → address; Umur → date_of_birth (Jan 1 of birth year).
+	var domisili, dob *string
+	if d := strings.TrimSpace(req.Domisili); d != "" {
+		domisili = &d
+	}
+	if req.Umur > 0 && req.Umur < 130 {
+		y := time.Now().Year() - req.Umur
+		s := fmt.Sprintf("%04d-01-01", y)
+		dob = &s
+	}
+
 	// 1. Capture the data (always — this is the point; idempotent by phone).
-	member, err := h.Konsum.RegisterProfile(ctx, phone, name, nil, nil)
+	member, err := h.Konsum.RegisterProfile(ctx, phone, name, nil, dob, domisili)
 	if err != nil {
 		fail(c, err)
 		return
@@ -73,9 +89,11 @@ func (h *Handlers) Claim(c *gin.Context) {
 		return
 	}
 
-	// 4. Analytics (best-effort).
-	h.Agrega.EmitFor("voucher.redeemed", "promo", camp.Code, map[string]any{"amount": price})
-	h.Agrega.EmitFor("visit.recorded", "member", phone, map[string]any{"amount": price})
+	// 4. Analytics (best-effort). The cup is FREE, so the member's spend is 0;
+	//    the giveaway VALUE (cup price) is recorded on the voucher.redeemed event,
+	//    not as member spend — keeps total_spend honest for future membership.
+	h.Agrega.EmitFor("voucher.redeemed", "promo", camp.Code, map[string]any{"value": price, "campaign": camp.Code})
+	h.Agrega.EmitFor("visit.recorded", "member", phone, map[string]any{"amount": 0})
 
 	remaining := camp.Remaining()
 	if remaining > 0 {
@@ -106,7 +124,7 @@ func (h *Handlers) RegisterMember(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 
-	member, err := h.Konsum.RegisterProfile(ctx, req.Phone, req.Name, req.Email, req.Dob)
+	member, err := h.Konsum.RegisterProfile(ctx, req.Phone, req.Name, req.Email, req.Dob, nil)
 	if err != nil {
 		fail(c, err)
 		return

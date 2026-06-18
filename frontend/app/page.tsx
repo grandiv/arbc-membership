@@ -1,21 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Coffee, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 import Header from "@/components/Header";
-import { api, ApiError, type ClaimResult, type Campaign } from "@/lib/api";
+import { api, ApiError, type ClaimResult } from "@/lib/api";
 
 export default function ClaimPage() {
-  const [form, setForm] = useState({ name: "", phone: "" });
+  const [form, setForm] = useState({ name: "", phone: "", domisili: "", umur: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ClaimResult | null>(null);
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
-
-  const loadCampaign = () => api.campaign().then(setCampaign).catch(() => setCampaign(null));
-  useEffect(() => {
-    loadCampaign();
-  }, []);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -25,9 +19,13 @@ export default function ClaimPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await api.claim({ name: form.name.trim(), phone: form.phone.trim() });
+      const res = await api.claim({
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        domisili: form.domisili.trim() || undefined,
+        umur: form.umur ? Number(form.umur) : undefined,
+      });
       setResult(res);
-      loadCampaign();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gagal. Coba lagi.");
     } finally {
@@ -36,14 +34,14 @@ export default function ClaimPage() {
   }
 
   function reset() {
-    setForm({ name: "", phone: "" });
+    setForm({ name: "", phone: "", domisili: "", umur: "" });
     setResult(null);
     setError(null);
   }
 
   const reasonText: Record<string, string> = {
     already_claimed: "Nomor ini sudah pernah klaim kopi gratis. Satu nomor satu cup ya.",
-    exhausted: "Kuota 200 kopi gratis sudah habis. Datanya tetap tersimpan 🙌",
+    exhausted: "Kuota kopi gratis sudah habis. Datanya tetap tersimpan 🙌",
     no_campaign: "Belum ada kampanye aktif. Buat dulu di Dashboard.",
     ineligible: "Belum bisa diklaim saat ini.",
   };
@@ -59,9 +57,6 @@ export default function ClaimPage() {
                 <CheckCircle2 size={48} color="var(--sage)" style={{ margin: "0 auto" }} />
                 <h2 style={{ marginTop: "0.75rem" }}>Kopi gratis! ☕</h2>
                 <p style={{ marginTop: "0.4rem" }}>Berikan 1 cup ke <strong>{result.member.name}</strong>.</p>
-                {typeof result.remaining === "number" && result.remaining >= 0 && (
-                  <p className="muted" style={{ marginTop: "0.6rem" }}>Sisa kuota: {result.remaining} / 200</p>
-                )}
               </>
             ) : (
               <>
@@ -76,17 +71,14 @@ export default function ClaimPage() {
           </div>
         ) : (
           <>
-            <div style={{ marginBottom: "1.5rem" }}>
-              <Coffee size={30} color="var(--caramel)" />
-              <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.4rem)", margin: "0.5rem 0" }}>
-                Klaim <span className="outlined">200 Kopi Gratis</span>
+            <div style={{ marginBottom: "1.5rem", textAlign: "center" }}>
+              <img src="/logo-mark.png" alt="" style={{ height: 76, width: "auto", margin: "0 auto 0.75rem" }} />
+              <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.4rem)", margin: "0 0 0.5rem" }}>
+                Klaim <span className="outlined">Kopi Gratis</span>
               </h1>
-              <p className="muted">Isikan data pelanggan untuk klaim 1 cup gratis. Satu nomor satu cup.</p>
-              {campaign?.active && typeof campaign.remaining === "number" && campaign.remaining >= 0 && (
-                <p style={{ marginTop: "0.5rem", fontWeight: 600, color: "var(--sage)" }}>
-                  ☕ Sisa kuota: {campaign.remaining} / 200
-                </p>
-              )}
+              <p className="muted" style={{ maxWidth: 380, margin: "0 auto" }}>
+                Isikan data pelanggan untuk klaim 1 cup gratis. Satu nomor satu cup.
+              </p>
             </div>
 
             <form className="card" style={{ padding: "1.75rem 1.6rem" }} onSubmit={submit}>
@@ -98,10 +90,20 @@ export default function ClaimPage() {
                 <label htmlFor="phone">Nomor HP / WhatsApp *</label>
                 <input id="phone" className="input" required value={form.phone} onChange={set("phone")} placeholder="08xxxxxxxxxx" inputMode="tel" autoComplete="off" />
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: "1rem" }}>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="domisili">Domisili *</label>
+                  <input id="domisili" className="input" required value={form.domisili} onChange={set("domisili")} placeholder="cth. Yogyakarta" autoComplete="off" />
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="umur">Umur *</label>
+                  <input id="umur" className="input" required type="number" min={5} max={100} value={form.umur} onChange={set("umur")} placeholder="cth. 25" inputMode="numeric" />
+                </div>
+              </div>
 
-              {error && <div className="notice notice--err" style={{ marginBottom: "1rem" }}>{error}</div>}
+              {error && <div className="notice notice--err" style={{ margin: "1.25rem 0 0" }}>{error}</div>}
 
-              <button className="btn btn--primary btn--block" disabled={loading} type="submit">
+              <button className="btn btn--primary btn--block" style={{ marginTop: "1.5rem" }} disabled={loading} type="submit">
                 {loading ? "Memproses…" : "Klaim 1 Kopi Gratis"}
               </button>
             </form>

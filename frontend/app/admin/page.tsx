@@ -14,6 +14,14 @@ type Campaign = {
   metadata?: { campaign?: string; label?: string; kind?: string };
 };
 
+// Umur disimpan sebagai date_of_birth (1 Jan tahun lahir); tampilkan kembali sebagai angka.
+function umurFromDob(dob?: string | null): string {
+  if (!dob || dob.length < 4) return "—";
+  const year = parseInt(dob.slice(0, 4), 10);
+  if (!year) return "—";
+  return String(new Date().getFullYear() - year);
+}
+
 export default function DashboardPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -99,12 +107,14 @@ export default function DashboardPage() {
               ) : (
                 <div className="table-wrap">
                   <table className="table table--cards">
-                    <thead><tr><th>Nama</th><th>Nomor HP</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Nama</th><th>Nomor HP</th><th>Domisili</th><th>Umur</th><th>Status</th></tr></thead>
                     <tbody>
                       {members.map((m) => (
                         <tr key={m.id}>
                           <td data-label="Nama" style={{ fontWeight: 600 }}>{m.name}</td>
                           <td data-label="Nomor HP">{m.phone}</td>
+                          <td data-label="Domisili">{m.address ?? "—"}</td>
+                          <td data-label="Umur">{umurFromDob(m.date_of_birth)}</td>
                           <td data-label="Status">
                             <span className={`pill ${m.order_count > 0 ? "pill--ok" : "pill--warn"}`}>
                               {m.order_count > 0 ? "✓ Klaim" : "Belum"}

@@ -9,7 +9,8 @@ export type Member = {
   phone: string;
   name: string;
   email?: string | null;
-  date_of_birth?: string | null;
+  address?: string | null; // domisili
+  date_of_birth?: string | null; // umur diturunkan dari sini
   order_count: number;
   total_spend: number;
 };
@@ -79,8 +80,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  // The campaign's single staff action: capture name+phone AND claim the cup.
-  claim: (input: { name: string; phone: string }) =>
+  // The campaign's single staff action: capture data AND claim the cup.
+  claim: (input: { name: string; phone: string; domisili?: string; umur?: number }) =>
     call<ClaimResult>("/api/claim", { method: "POST", body: JSON.stringify(input) }),
 
   campaign: () => call<Campaign>("/api/campaign"),
