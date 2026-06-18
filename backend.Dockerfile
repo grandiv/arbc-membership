@@ -10,7 +10,7 @@ COPY backend/ ./
 # BFF replace dirs are ../../../KreaZcy/libs/ — rewrite to the in-image location.
 RUN sed -i 's|../../../KreaZcy/libs/|/libs/|g' go.mod
 
-ENV GOPROXY=https://goproxy.io,direct
+ENV GOPROXY=https://goproxy.io,https://goproxy.cn,https://mirrors.aliyun.com/goproxy,direct
 ENV GOSUMDB=off
 RUN go mod download && go build -a -installsuffix cgo -o arbc-bff ./cmd/server/
 

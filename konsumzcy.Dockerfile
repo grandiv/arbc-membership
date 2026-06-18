@@ -12,7 +12,7 @@ COPY .kzcy/services/KonsumZcy/KonsumZcy/ ./
 RUN sed -i 's|../../../libs/|/libs/|g' go.mod
 
 # izcy-engine VPS blocks Google's module proxy + checksum DB.
-ENV GOPROXY=https://goproxy.io,direct
+ENV GOPROXY=https://goproxy.io,https://goproxy.cn,https://mirrors.aliyun.com/goproxy,direct
 ENV GOSUMDB=off
 RUN go mod download && go build -a -installsuffix cgo -o konsumzcy ./cmd/server/
 

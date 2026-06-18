@@ -10,7 +10,7 @@ COPY .kzcy/services/AgregaZcy/AgregaZcy/ ./
 
 RUN sed -i 's|../../../libs/|/libs/|g; s|../AgregaZcy-BI-Go|/bi-go|g' go.mod
 
-ENV GOPROXY=https://goproxy.io,direct
+ENV GOPROXY=https://goproxy.io,https://goproxy.cn,https://mirrors.aliyun.com/goproxy,direct
 ENV GOSUMDB=off
 RUN go mod download && go build -a -installsuffix cgo -o agregazcy ./cmd/server/
 
