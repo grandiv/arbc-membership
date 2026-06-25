@@ -25,7 +25,9 @@ services:
       dockerfile: konsumzcy.Dockerfile
     environment:
       PORT: "8084"
-      MONGO_URI: mongodb://mongo:27017
+      # Defaults to the local container; set MONGO_URI (e.g. in a gitignored
+      # .env) to point at Mongo Atlas in prod. Each engine uses its own DB_NAME.
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017}
       DB_NAME: konsumzcy
       AUTH_METHOD: none
       GIN_MODE: release
@@ -41,7 +43,7 @@ services:
       dockerfile: promozcy.Dockerfile
     environment:
       PORT: "8082"
-      MONGO_URI: mongodb://mongo:27017
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017}
       DB_NAME: promozcy
       KAFKA_BROKERS: ""
       AUTH_METHOD: none
@@ -57,7 +59,7 @@ services:
       context: .
       dockerfile: agregazcy.Dockerfile
     environment:
-      AGREGAZCY_MONGO_URI: mongodb://mongo:27017
+      AGREGAZCY_MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017}
       AGREGAZCY_DB_NAME: agregazcy
       AUTH_METHOD: none
       GIN_MODE: release
