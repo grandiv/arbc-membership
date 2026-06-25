@@ -2,7 +2,9 @@
 # proxied to the BFF container. Build context = arbc-membership/ root so we
 # COPY both frontend/ and nginx.conf.
 # node:22 — corepack's pnpm needs node:sqlite (Node 22+).
-FROM node:22-alpine AS builder
+# --platform=$BUILDPLATFORM: build the static export natively (output is
+# arch-neutral HTML/JS); only the final nginx stage is the target arch.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable
 COPY frontend/package.json frontend/pnpm-lock.yaml* frontend/pnpm-workspace.yaml* ./

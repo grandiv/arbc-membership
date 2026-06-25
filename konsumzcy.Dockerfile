@@ -1,7 +1,10 @@
 # KonsumZcy (member store) build.
 # Run scripts/stage.sh first to populate .kzcy/ (libs + engine source). Build
 # context = this repo root; see docker-compose.yml.
-FROM golang:1.25-alpine AS builder
+# --platform=$BUILDPLATFORM: the builder runs natively (e.g. arm64 on the dev
+# Mac) and CROSS-compiles to $TARGETARCH, so we can build amd64 images locally
+# and ship them — the reduced-spec VPS no longer compiles anything.
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache git gcc musl-dev
 
@@ -14,7 +17,8 @@ RUN sed -i 's|../../../libs/|/libs/|g' go.mod
 # izcy-engine VPS blocks Google's module proxy + checksum DB.
 ENV GOPROXY=https://goproxy.io,https://goproxy.cn,https://mirrors.aliyun.com/goproxy,direct
 ENV GOSUMDB=off
-RUN go mod download && go build -a -installsuffix cgo -o konsumzcy ./cmd/server/
+ARG TARGETOS TARGETARCH
+RUN go mod download && CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -o konsumzcy ./cmd/server/
 
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata wget

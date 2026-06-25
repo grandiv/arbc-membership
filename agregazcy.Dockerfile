@@ -1,6 +1,8 @@
 # AgregaZcy (analytics timeline + forecasting) build.
 # Run scripts/stage.sh first to populate .kzcy/. See docker-compose.yml.
-FROM golang:1.25-alpine AS builder
+# --platform=$BUILDPLATFORM: builder runs natively, cross-compiles to $TARGETARCH
+# (see konsumzcy.Dockerfile) so amd64 images can be built locally and shipped.
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache git gcc musl-dev
 
@@ -12,7 +14,8 @@ RUN sed -i 's|../../../libs/|/libs/|g; s|../AgregaZcy-BI-Go|/bi-go|g' go.mod
 
 ENV GOPROXY=https://goproxy.io,https://goproxy.cn,https://mirrors.aliyun.com/goproxy,direct
 ENV GOSUMDB=off
-RUN go mod download && go build -a -installsuffix cgo -o agregazcy ./cmd/server/
+ARG TARGETOS TARGETARCH
+RUN go mod download && CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -o agregazcy ./cmd/server/
 
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata wget
