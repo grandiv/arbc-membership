@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import Header from "@/components/Header";
-import { api, ApiError, type Member } from "@/lib/api";
+import { api, ApiError, CAMPAIGN_MENUS, type Member } from "@/lib/api";
 
 type Campaign = {
   id: string;
@@ -25,6 +25,7 @@ function umurFromDob(dob?: string | null): string {
 export default function DashboardPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [menuStats, setMenuStats] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ name: "200 Kopi Gratis", limit: "200" });
@@ -34,9 +35,10 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [m, c] = await Promise.all([api.listMembers(), api.listCampaigns()]);
+      const [m, c, ms] = await Promise.all([api.listMembers(), api.listCampaigns(), api.menuStats()]);
       setMembers(m.data ?? []);
       setCampaigns((c.data as Campaign[]) ?? []);
+      setMenuStats(ms.data ?? {});
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gagal memuat data.");
     } finally {
@@ -92,11 +94,21 @@ export default function DashboardPage() {
         {active ? (
           <>
             {/* Campaign progress */}
-            <div className="grid-2" style={{ marginBottom: "2rem" }}>
+            <div className="grid-2" style={{ marginBottom: "1.25rem" }}>
               <div className="stat"><div className="stat__n">{used}</div><div className="stat__l">Kopi Gratis Terpakai</div></div>
               <div className="stat"><div className="stat__n">{remaining}</div><div className="stat__l">Sisa Kuota</div></div>
               <div className="stat"><div className="stat__n">{cap}</div><div className="stat__l">Total Kuota</div></div>
               <div className="stat"><div className="stat__n">{members.length}</div><div className="stat__l">Total Pendaftar</div></div>
+            </div>
+
+            {/* Menu breakdown — which free drink is more popular */}
+            <div className="grid-2" style={{ marginBottom: "2rem" }}>
+              {CAMPAIGN_MENUS.map((m) => (
+                <div className="stat" key={m}>
+                  <div className="stat__n">{menuStats[m] ?? 0}</div>
+                  <div className="stat__l">{m}</div>
+                </div>
+              ))}
             </div>
 
             {/* Pendaftar — the data collected (Nama + HP), with claim status */}
@@ -107,7 +119,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="table-wrap">
                   <table className="table table--cards">
-                    <thead><tr><th>Nama</th><th>Nomor HP</th><th>Domisili</th><th>Umur</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Nama</th><th>Nomor HP</th><th>Domisili</th><th>Umur</th><th>Menu</th><th>Status</th></tr></thead>
                     <tbody>
                       {members.map((m) => (
                         <tr key={m.id}>
@@ -115,6 +127,7 @@ export default function DashboardPage() {
                           <td data-label="Nomor HP">{m.phone}</td>
                           <td data-label="Domisili">{m.address ?? "—"}</td>
                           <td data-label="Umur">{umurFromDob(m.date_of_birth)}</td>
+                          <td data-label="Menu">{m.menu || "—"}</td>
                           <td data-label="Status">
                             <span className={`pill ${m.order_count > 0 ? "pill--ok" : "pill--warn"}`}>
                               {m.order_count > 0 ? "✓ Klaim" : "Belum"}

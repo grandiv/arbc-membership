@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import { CheckCircle2, XCircle, RotateCcw, Coffee } from "lucide-react";
 import Header from "@/components/Header";
-import { api, ApiError, type ClaimResult } from "@/lib/api";
+import { api, ApiError, CAMPAIGN_MENUS, type CampaignMenu, type ClaimResult } from "@/lib/api";
 
 export default function ClaimPage() {
   const [form, setForm] = useState({ name: "", phone: "", domisili: "", umur: "" });
+  const [menu, setMenu] = useState<CampaignMenu | "">("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ClaimResult | null>(null);
@@ -17,6 +18,10 @@ export default function ClaimPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!menu) {
+      setError("Pilih dulu menu kopinya.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.claim({
@@ -24,6 +29,7 @@ export default function ClaimPage() {
         phone: form.phone.trim(),
         domisili: form.domisili.trim() || undefined,
         umur: form.umur ? Number(form.umur) : undefined,
+        menu,
       });
       setResult(res);
     } catch (err) {
@@ -35,6 +41,7 @@ export default function ClaimPage() {
 
   function reset() {
     setForm({ name: "", phone: "", domisili: "", umur: "" });
+    setMenu("");
     setResult(null);
     setError(null);
   }
@@ -56,7 +63,9 @@ export default function ClaimPage() {
               <>
                 <CheckCircle2 size={48} color="var(--sage)" style={{ margin: "0 auto" }} />
                 <h2 style={{ marginTop: "0.75rem" }}>Kopi gratis! ☕</h2>
-                <p style={{ marginTop: "0.4rem" }}>Berikan 1 cup ke <strong>{result.member.name}</strong>.</p>
+                <p style={{ marginTop: "0.4rem" }}>
+                  Berikan <strong>{result.menu ?? "1 cup"}</strong> ke <strong>{result.member.name}</strong>.
+                </p>
               </>
             ) : (
               <>
@@ -101,9 +110,27 @@ export default function ClaimPage() {
                 </div>
               </div>
 
+              <div className="field" style={{ marginTop: "1.25rem", marginBottom: 0 }}>
+                <label>Pilih menu kopi *</label>
+                <div className="menu-choice">
+                  {CAMPAIGN_MENUS.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className={`menu-opt ${menu === m ? "menu-opt--on" : ""}`}
+                      aria-pressed={menu === m}
+                      onClick={() => setMenu(m)}
+                    >
+                      <Coffee size={18} />
+                      <span>{m}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {error && <div className="notice notice--err" style={{ margin: "1.25rem 0 0" }}>{error}</div>}
 
-              <button className="btn btn--primary btn--block" style={{ marginTop: "1.5rem" }} disabled={loading} type="submit">
+              <button className="btn btn--primary btn--block" style={{ marginTop: "1.5rem" }} disabled={loading || !menu} type="submit">
                 {loading ? "Memproses…" : "Klaim 1 Kopi Gratis"}
               </button>
             </form>

@@ -57,12 +57,15 @@ func (a *AgregaZcy) EmitFor(action, targetEntity, targetID string, metadata map[
 type MemberMetric struct {
 	Visits int
 	Spend  float64
+	Menu   string // the menu chosen on their (most recent) claim, if recorded
 }
 
-// MemberStats derives per-member visit count + total spend from the
-// visit.recorded events AgregaZcy already stores — KonsumZcy holds no metrics.
-// Returns a map keyed by member phone (the event targetId).
-func (a *AgregaZcy) MemberStats(ctx context.Context) (map[string]MemberMetric, error) {
+// visitEvents pulls the visit.recorded events for this tenant (high limit;
+// small-scale product). They carry the member phone as targetId.
+func (a *AgregaZcy) visitEvents(ctx context.Context) ([]struct {
+	TargetID string         `json:"targetId"`
+	Metadata map[string]any `json:"metadata"`
+}, error) {
 	var env struct {
 		Data struct {
 			Events []struct {
@@ -71,13 +74,23 @@ func (a *AgregaZcy) MemberStats(ctx context.Context) (map[string]MemberMetric, e
 			} `json:"events"`
 		} `json:"data"`
 	}
-	// Pull visit events for this tenant (high limit; small-scale product).
 	path := "/api/v1/internal/events?tenantId=" + agregaTenant + "&action=visit.recorded&limit=10000"
 	if err := a.h.do(ctx, "AgregaZcy", "GET", path, nil, &env); err != nil {
 		return nil, err
 	}
+	return env.Data.Events, nil
+}
+
+// MemberStats derives per-member visit count + total spend + chosen menu from the
+// visit.recorded events AgregaZcy already stores — KonsumZcy holds no metrics.
+// Returns a map keyed by member phone (the event targetId).
+func (a *AgregaZcy) MemberStats(ctx context.Context) (map[string]MemberMetric, error) {
+	events, err := a.visitEvents(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out := make(map[string]MemberMetric)
-	for _, e := range env.Data.Events {
+	for _, e := range events {
 		if e.TargetID == "" {
 			continue
 		}
@@ -86,7 +99,26 @@ func (a *AgregaZcy) MemberStats(ctx context.Context) (map[string]MemberMetric, e
 		if amt, ok := e.Metadata["amount"].(float64); ok {
 			m.Spend += amt
 		}
+		if menu, ok := e.Metadata["menu"].(string); ok && menu != "" {
+			m.Menu = menu // last writer wins → the most recent claim's menu
+		}
 		out[e.TargetID] = m
+	}
+	return out, nil
+}
+
+// MenuTally counts how many free cups were claimed per menu, derived from the
+// same visit.recorded events. Powers the "which drink is more popular" view.
+func (a *AgregaZcy) MenuTally(ctx context.Context) (map[string]int, error) {
+	events, err := a.visitEvents(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]int)
+	for _, e := range events {
+		if menu, ok := e.Metadata["menu"].(string); ok && menu != "" {
+			out[menu]++
+		}
 	}
 	return out, nil
 }

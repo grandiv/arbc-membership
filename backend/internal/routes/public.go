@@ -24,6 +24,15 @@ type claimRequest struct {
 	Phone    string `json:"phone" binding:"required"`
 	Domisili string `json:"domisili"` // → KonsumZcy address (generic location)
 	Umur     int    `json:"umur"`     // age → derived date_of_birth (durable form)
+	Menu     string `json:"menu"`     // which free drink (one of campaignMenus)
+}
+
+// campaignMenus is the closed set of free drinks the soft-launch gives away.
+// Staff must pick exactly one. Brand vocabulary, so it lives in the BFF — the
+// engines only ever see it as opaque event metadata.
+var campaignMenus = map[string]bool{
+	"Kopi dan Enak":  true,
+	"Kopi dan Palem": true,
 }
 
 func (h *Handlers) Claim(c *gin.Context) {
@@ -35,6 +44,18 @@ func (h *Handlers) Claim(c *gin.Context) {
 	ctx := c.Request.Context()
 	phone := strings.TrimSpace(req.Phone)
 	name := strings.TrimSpace(req.Name)
+	menu := strings.TrimSpace(req.Menu)
+
+	if phone == "" || name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_REQUEST", "message": "nama dan nomor HP wajib diisi"})
+		return
+	}
+	// The menu is part of the claim's intent — reject unknown/empty values so a
+	// stray client can't record an off-catalogue drink.
+	if !campaignMenus[menu] {
+		c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_MENU", "message": "pilih salah satu menu kopi"})
+		return
+	}
 
 	// Map brand fields → generic KonsumZcy fields (no engine change):
 	//   Domisili → address; Umur → date_of_birth (Jan 1 of birth year).
@@ -48,11 +69,16 @@ func (h *Handlers) Claim(c *gin.Context) {
 		dob = &s
 	}
 
-	// 1. Capture the data (always — this is the point; idempotent by phone).
-	member, err := h.Konsum.RegisterProfile(ctx, phone, name, nil, dob, domisili)
+	// 1. Look up any existing profile FIRST (read-only). This decides whether a
+	//    later write is a fresh insert or would clobber stored data — we must
+	//    never overwrite an already-captured customer on a rejected re-claim.
+	existing, err := h.Konsum.GetByPhone(ctx, phone)
 	if err != nil {
-		fail(c, err)
-		return
+		if !clients.IsNotFound(err) {
+			fail(c, err)
+			return
+		}
+		existing = nil // brand-new phone
 	}
 
 	// 2. The active campaign.
@@ -62,11 +88,20 @@ func (h *Handlers) Claim(c *gin.Context) {
 		return
 	}
 	if camp == nil {
+		// Nothing to claim. Capture a new lead, but don't touch an existing one.
+		member := existing
+		if existing == nil {
+			member, err = h.Konsum.RegisterProfile(ctx, phone, name, nil, dob, domisili)
+			if err != nil {
+				fail(c, err)
+				return
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{"claimed": false, "reason": "no_campaign", "member": member})
 		return
 	}
 
-	// 3. Attempt the claim for this phone (PromoZcy enforces cap + once-per-phone).
+	// 3. Check eligibility BEFORE any write (PromoZcy enforces cap + once-per-phone).
 	price := h.coffeePrice()
 	res, err := h.Promo.Validate(ctx, camp.Code, phone, price, 0)
 	if err != nil {
@@ -81,7 +116,25 @@ func (h *Handlers) Claim(c *gin.Context) {
 		case strings.Contains(res.Message, "usage limit"):
 			reason = "exhausted"
 		}
+		// Data integrity: an already-claimed customer is NEVER re-written — their
+		// original captured profile wins. A new lead that hits an exhausted quota
+		// is still worth capturing.
+		member := existing
+		if existing == nil && reason != "already_claimed" {
+			member, err = h.Konsum.RegisterProfile(ctx, phone, name, nil, dob, domisili)
+			if err != nil {
+				fail(c, err)
+				return
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{"claimed": false, "reason": reason, "member": member, "remaining": camp.Remaining()})
+		return
+	}
+
+	// 4. Eligible → capture/enrich the profile, then apply the voucher.
+	member, err := h.Konsum.RegisterProfile(ctx, phone, name, nil, dob, domisili)
+	if err != nil {
+		fail(c, err)
 		return
 	}
 	if err := h.Promo.Apply(ctx, camp.Code, phone, name, price); err != nil {
@@ -89,17 +142,18 @@ func (h *Handlers) Claim(c *gin.Context) {
 		return
 	}
 
-	// 4. Analytics (best-effort). The cup is FREE, so the member's spend is 0;
+	// 5. Analytics (best-effort). The cup is FREE, so the member's spend is 0;
 	//    the giveaway VALUE (cup price) is recorded on the voucher.redeemed event,
 	//    not as member spend — keeps total_spend honest for future membership.
-	h.Agrega.EmitFor("voucher.redeemed", "promo", camp.Code, map[string]any{"value": price, "campaign": camp.Code})
-	h.Agrega.EmitFor("visit.recorded", "member", phone, map[string]any{"amount": 0})
+	//    The chosen menu rides along as metadata for the "which drink" report.
+	h.Agrega.EmitFor("voucher.redeemed", "promo", camp.Code, map[string]any{"value": price, "campaign": camp.Code, "menu": menu})
+	h.Agrega.EmitFor("visit.recorded", "member", phone, map[string]any{"amount": 0, "menu": menu})
 
 	remaining := camp.Remaining()
 	if remaining > 0 {
 		remaining-- // reflect this claim
 	}
-	c.JSON(http.StatusOK, gin.H{"claimed": true, "member": member, "remaining": remaining})
+	c.JSON(http.StatusOK, gin.H{"claimed": true, "member": member, "remaining": remaining, "menu": menu})
 }
 
 // ── POST /api/register ────────────────────────────────────────────────────────

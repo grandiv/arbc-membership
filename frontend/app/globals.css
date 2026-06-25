@@ -101,6 +101,23 @@ button { font-family: inherit; }
 .input::placeholder { color: rgba(110,82,64,.6); }
 .input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(147,75,54,.15); }
 
+/* ---- Menu choice (campaign free drinks) ---- */
+.menu-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.menu-opt {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem;
+  font-family: var(--font-body); font-size: 0.95rem; font-weight: 600; color: var(--ink);
+  background: var(--surface-2); border: 1.5px solid var(--line); border-radius: 14px;
+  padding: 0.95rem 0.75rem; cursor: pointer; text-align: center; min-height: 64px;
+  transition: border-color .15s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease), transform .12s var(--ease);
+}
+.menu-opt:hover { border-color: var(--primary); }
+.menu-opt:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.menu-opt--on {
+  background: var(--primary); color: var(--white); border-color: var(--primary);
+  box-shadow: 0 10px 24px -12px rgba(147,75,54,.6);
+}
+.menu-opt--on svg { color: var(--white); }
+
 /* ---- Status pills + notices ---- */
 .pill { display: inline-flex; align-items: center; gap: 0.4em; font-size: 0.78rem; font-weight: 600;
   padding: 0.3em 0.8em; border-radius: 999px; }

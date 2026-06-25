@@ -40,6 +40,7 @@ func (h *Handlers) Register(r *gin.Engine) {
 		admin := api.Group("/admin")
 		{
 			admin.GET("/members", h.ListMembers)
+			admin.GET("/menu-stats", h.MenuStats)
 			admin.GET("/campaigns", h.ListCampaigns)
 			admin.POST("/campaigns", h.CreateCampaign)
 		}

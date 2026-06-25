@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,18 @@ import (
 
 // urlEscape escapes a query-string value.
 func urlEscape(s string) string { return url.QueryEscape(s) }
+
+// IsNotFound reports whether err is an UpstreamError with a 404 status. The BFF
+// uses it to tell "this customer doesn't exist yet" apart from a real failure,
+// so a claim can decide between an insert (new capture) and leaving an existing
+// record untouched.
+func IsNotFound(err error) bool {
+	var ue *UpstreamError
+	if errors.As(err, &ue) {
+		return ue.Status == http.StatusNotFound
+	}
+	return false
+}
 
 // httpDo is the shared transport for every engine client.
 type httpDo struct {

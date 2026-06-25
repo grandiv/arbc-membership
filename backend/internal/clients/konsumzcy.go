@@ -20,6 +20,9 @@ type Customer struct {
 	OrderCount    int     `json:"order_count"`
 	TotalSpend    float64 `json:"total_spend"`
 	LastOrderDate *string `json:"last_order_date,omitempty"`
+	// Menu is a BFF-only overlay (not a KonsumZcy field): the free drink this
+	// customer chose, derived from AgregaZcy. Empty if they never claimed.
+	Menu string `json:"menu,omitempty"`
 }
 
 type customerEnvelope struct {

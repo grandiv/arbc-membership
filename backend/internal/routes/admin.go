@@ -17,16 +17,31 @@ func (h *Handlers) ListMembers(c *gin.Context) {
 		fail(c, err)
 		return
 	}
-	// Overlay AgregaZcy-derived visit/spend (best-effort; zeros if it fails).
+	// Overlay AgregaZcy-derived visit/spend/menu (best-effort; zeros if it fails).
 	if stats, err := h.Agrega.MemberStats(ctx); err == nil {
 		for i := range list.Data {
 			if m, ok := stats[list.Data[i].Phone]; ok {
 				list.Data[i].OrderCount = m.Visits
 				list.Data[i].TotalSpend = m.Spend
+				list.Data[i].Menu = m.Menu
 			}
 		}
 	}
 	c.JSON(http.StatusOK, list)
+}
+
+// ── GET /api/admin/menu-stats ─────────────────────────────────────────────────
+// Which free drink is more popular. Derived from AgregaZcy's claim events.
+func (h *Handlers) MenuStats(c *gin.Context) {
+	tally, err := h.Agrega.MenuTally(c.Request.Context())
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	if tally == nil {
+		tally = map[string]int{}
+	}
+	c.JSON(http.StatusOK, gin.H{"data": tally})
 }
 
 // ── GET /api/admin/campaigns ──────────────────────────────────────────────────

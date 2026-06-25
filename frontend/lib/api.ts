@@ -13,7 +13,12 @@ export type Member = {
   date_of_birth?: string | null; // umur diturunkan dari sini
   order_count: number;
   total_spend: number;
+  menu?: string; // menu yang dipilih saat klaim (diturunkan dari AgregaZcy)
 };
+
+// The closed set of free drinks the campaign gives away. Staff picks one.
+export const CAMPAIGN_MENUS = ["Kopi dan Enak", "Kopi dan Palem"] as const;
+export type CampaignMenu = (typeof CAMPAIGN_MENUS)[number];
 
 export type RegisterResult = {
   member: Member;
@@ -25,6 +30,7 @@ export type ClaimResult = {
   reason?: "no_campaign" | "already_claimed" | "exhausted" | "ineligible";
   member: Member;
   remaining?: number;
+  menu?: string;
 };
 
 // Active campaign info.
@@ -81,8 +87,10 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   // The campaign's single staff action: capture data AND claim the cup.
-  claim: (input: { name: string; phone: string; domisili?: string; umur?: number }) =>
+  claim: (input: { name: string; phone: string; domisili?: string; umur?: number; menu: string }) =>
     call<ClaimResult>("/api/claim", { method: "POST", body: JSON.stringify(input) }),
+
+  menuStats: () => call<{ data: Record<string, number> }>("/api/admin/menu-stats"),
 
   campaign: () => call<Campaign>("/api/campaign"),
 
