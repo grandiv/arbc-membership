@@ -66,6 +66,13 @@ export default function ClaimPage() {
                 <p style={{ marginTop: "0.4rem" }}>
                   Berikan <strong>{result.menu ?? "1 cup"}</strong> ke <strong>{result.member.name}</strong>.
                 </p>
+                {result.number ? (
+                  <div className="queue-ticket">
+                    <span className="queue-ticket__l">Nomor Antrian</span>
+                    <span className="queue-ticket__n">{result.number}</span>
+                    <span className="queue-ticket__hint">Sebutkan nomor ini ke pelanggan</span>
+                  </div>
+                ) : null}
               </>
             ) : (
               <>

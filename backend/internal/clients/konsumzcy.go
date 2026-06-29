@@ -23,6 +23,10 @@ type Customer struct {
 	// Menu is a BFF-only overlay (not a KonsumZcy field): the free drink this
 	// customer chose, derived from AgregaZcy. Empty if they never claimed.
 	Menu string `json:"menu,omitempty"`
+	// Queue overlay (also BFF-only, derived from ticket events): the customer's
+	// queue number and live production status.
+	QueueNumber int    `json:"queue_number,omitempty"`
+	QueueStatus string `json:"queue_status,omitempty"` // waiting|ready|done
 }
 
 type customerEnvelope struct {

@@ -22,6 +22,18 @@ function umurFromDob(dob?: string | null): string {
   return String(new Date().getFullYear() - year);
 }
 
+// Live production status → label + pill class. Falls back to claim status.
+function statusBadge(m: Member): { label: string; cls: string } {
+  switch (m.queue_status) {
+    case "waiting": return { label: "Sedang dibuat", cls: "pill--making" };
+    case "ready":   return { label: "Siap dipanggil", cls: "pill--ready" };
+    case "done":    return { label: "Selesai", cls: "pill--done" };
+    default:        return m.order_count > 0
+      ? { label: "✓ Klaim", cls: "pill--ok" }
+      : { label: "Belum", cls: "pill--warn" };
+  }
+}
+
 export default function DashboardPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -119,22 +131,24 @@ export default function DashboardPage() {
               ) : (
                 <div className="table-wrap">
                   <table className="table table--cards">
-                    <thead><tr><th>Nama</th><th>Nomor HP</th><th>Domisili</th><th>Umur</th><th>Menu</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Antrian</th><th>Nama</th><th>Nomor HP</th><th>Domisili</th><th>Umur</th><th>Menu</th><th>Status</th></tr></thead>
                     <tbody>
-                      {members.map((m) => (
+                      {members.map((m) => {
+                        const s = statusBadge(m);
+                        return (
                         <tr key={m.id}>
+                          <td data-label="Antrian"><span className="qnum">{m.queue_number ? `#${m.queue_number}` : "—"}</span></td>
                           <td data-label="Nama" style={{ fontWeight: 600 }}>{m.name}</td>
                           <td data-label="Nomor HP">{m.phone}</td>
                           <td data-label="Domisili">{m.address ?? "—"}</td>
                           <td data-label="Umur">{umurFromDob(m.date_of_birth)}</td>
                           <td data-label="Menu">{m.menu || "—"}</td>
                           <td data-label="Status">
-                            <span className={`pill ${m.order_count > 0 ? "pill--ok" : "pill--warn"}`}>
-                              {m.order_count > 0 ? "✓ Klaim" : "Belum"}
-                            </span>
+                            <span className={`pill ${s.cls}`}>{s.label}</span>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

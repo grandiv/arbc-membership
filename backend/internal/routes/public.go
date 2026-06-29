@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -27,13 +28,24 @@ type claimRequest struct {
 	Menu     string `json:"menu"`     // which free drink (one of campaignMenus)
 }
 
-// campaignMenus is the closed set of free drinks the soft-launch gives away.
-// Staff must pick exactly one. Brand vocabulary, so it lives in the BFF — the
-// engines only ever see it as opaque event metadata.
-var campaignMenus = map[string]bool{
-	"Kopi dan Enak":  true,
-	"Kopi dan Palem": true,
+// campaignMenuList is the ordered, closed set of free drinks the soft-launch
+// gives away. Staff must pick exactly one. Brand vocabulary, so it lives in the
+// BFF — the engines only ever see it as opaque event metadata. Order here drives
+// the dashboard's menu cards.
+var campaignMenuList = []string{
+	"Kopi dan Enak",
+	"Kopi dan Palem",
+	"Americano Arabica",
 }
+
+// campaignMenus is the membership-test lookup derived from campaignMenuList.
+var campaignMenus = func() map[string]bool {
+	m := make(map[string]bool, len(campaignMenuList))
+	for _, v := range campaignMenuList {
+		m[v] = true
+	}
+	return m
+}()
 
 func (h *Handlers) Claim(c *gin.Context) {
 	var req claimRequest
@@ -149,11 +161,41 @@ func (h *Handlers) Claim(c *gin.Context) {
 	h.Agrega.EmitFor("voucher.redeemed", "promo", camp.Code, map[string]any{"value": price, "campaign": camp.Code, "menu": menu})
 	h.Agrega.EmitFor("visit.recorded", "member", phone, map[string]any{"amount": 0, "menu": menu})
 
+	// 6. Production queue: assign a daily-sequential number + enqueue a ticket so
+	//    the production house sees the order and can call the customer. Best-effort
+	//    — never blocks the cup; the number is computed synchronously so it can be
+	//    handed to the barista even though the ticket event itself is fire-and-forget.
+	number, ticketID := h.nextQueueTicket(ctx)
+	h.Agrega.EmitFor("ticket.created", "ticket", ticketID, map[string]any{
+		"number": number, "name": name, "menu": menu, "phone": phone,
+	})
+
 	remaining := camp.Remaining()
 	if remaining > 0 {
 		remaining-- // reflect this claim
 	}
-	c.JSON(http.StatusOK, gin.H{"claimed": true, "member": member, "remaining": remaining, "menu": menu})
+	c.JSON(http.StatusOK, gin.H{"claimed": true, "member": member, "remaining": remaining, "menu": menu, "number": number, "ticketId": ticketID})
+}
+
+// jakartaLoc is the booth's wall-clock zone (WIB); the queue number resets per
+// local day. nil if tzdata is missing — nextQueueTicket falls back to UTC then.
+var jakartaLoc, _ = time.LoadLocation("Asia/Jakarta")
+
+// nextQueueTicket assigns the next daily-sequential queue number (in Asia/Jakarta)
+// and a unique ticket id. Best-effort: if the count can't be read, returns 0 +
+// a time-based id so the ticket is still unique and the cup still flows.
+func (h *Handlers) nextQueueTicket(ctx context.Context) (int, string) {
+	now := time.Now()
+	if jakartaLoc != nil {
+		now = now.In(jakartaLoc)
+	}
+	dayKey := now.Format("20060102")
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	if n, err := h.Agrega.CountTicketsSince(ctx, dayStart.UTC().Format(time.RFC3339)); err == nil {
+		number := n + 1
+		return number, fmt.Sprintf("%s-%03d", dayKey, number)
+	}
+	return 0, fmt.Sprintf("%s-t%d", dayKey, now.Unix())
 }
 
 // ── POST /api/register ────────────────────────────────────────────────────────

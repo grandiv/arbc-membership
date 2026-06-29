@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 // Staff-only nav (the consumer never operates the app — staff do all inputs).
 const links = [
   { href: "/", label: "Klaim" },
+  { href: "/produksi", label: "Produksi" },
   { href: "/admin", label: "Dashboard" },
 ];
 

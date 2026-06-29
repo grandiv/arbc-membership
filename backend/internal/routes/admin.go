@@ -2,8 +2,11 @@ package routes
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/KreaZcy/arbc-membership-backend/internal/clients"
 )
 
 // ── GET /api/admin/members ────────────────────────────────────────────────────
@@ -27,6 +30,25 @@ func (h *Handlers) ListMembers(c *gin.Context) {
 			}
 		}
 	}
+	// Overlay the queue number + live production status, keyed by phone (one
+	// claim per phone, so one ticket; if somehow more, the highest number wins).
+	if events, err := h.Agrega.ListTickets(ctx); err == nil {
+		byPhone := map[string]*QueueTicket{}
+		for _, t := range foldTickets(events) {
+			if t.Phone == "" {
+				continue
+			}
+			if ex, ok := byPhone[t.Phone]; !ok || t.Number > ex.Number {
+				byPhone[t.Phone] = t
+			}
+		}
+		for i := range list.Data {
+			if t, ok := byPhone[list.Data[i].Phone]; ok {
+				list.Data[i].QueueNumber = t.Number
+				list.Data[i].QueueStatus = t.Status
+			}
+		}
+	}
 	c.JSON(http.StatusOK, list)
 }
 
@@ -42,6 +64,96 @@ func (h *Handlers) MenuStats(c *gin.Context) {
 		tally = map[string]int{}
 	}
 	c.JSON(http.StatusOK, gin.H{"data": tally})
+}
+
+// ── Production queue (POS-style board) ────────────────────────────────────────
+// The production house's live board, folded from ticket.* events. Brand-shaped
+// (number/name/menu) here in the BFF; AgregaZcy only ever sees neutral events.
+
+// QueueTicket is one open ticket on the production board.
+type QueueTicket struct {
+	TicketID  string `json:"ticketId"`
+	Number    int    `json:"number"`
+	Name      string `json:"name"`
+	Menu      string `json:"menu"`
+	Phone     string `json:"phone"`
+	Status    string `json:"status"` // "waiting" | "ready" | "done"
+	CreatedAt string `json:"createdAt"`
+}
+
+// foldTickets collapses the ticket.* event stream into one final state per
+// ticketId (newest status wins; done is terminal). Shared by the board and the
+// pendaftar overlay.
+func foldTickets(events []clients.TicketEvent) map[string]*QueueTicket {
+	m := map[string]*QueueTicket{}
+	created := map[string]bool{}
+	for _, e := range events {
+		t := m[e.TicketID]
+		if t == nil {
+			t = &QueueTicket{TicketID: e.TicketID, Status: "waiting"}
+			m[e.TicketID] = t
+		}
+		switch e.Action {
+		case "ticket.created":
+			created[e.TicketID] = true
+			t.CreatedAt = e.Timestamp
+			if v, ok := e.Metadata["number"].(float64); ok {
+				t.Number = int(v)
+			}
+			if v, ok := e.Metadata["name"].(string); ok {
+				t.Name = v
+			}
+			if v, ok := e.Metadata["menu"].(string); ok {
+				t.Menu = v
+			}
+			if v, ok := e.Metadata["phone"].(string); ok {
+				t.Phone = v
+			}
+		case "ticket.ready":
+			if t.Status != "done" {
+				t.Status = "ready"
+			}
+		case "ticket.done":
+			t.Status = "done"
+		}
+	}
+	// Drop tickets that never had a created event (shouldn't happen, defensive).
+	for id := range m {
+		if !created[id] {
+			delete(m, id)
+		}
+	}
+	return m
+}
+
+// GET /api/admin/queue — open tickets (created/ready, not done), lowest number first.
+func (h *Handlers) ProductionQueue(c *gin.Context) {
+	events, err := h.Agrega.ListTickets(c.Request.Context())
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	out := make([]QueueTicket, 0)
+	for _, t := range foldTickets(events) {
+		if t.Status == "done" {
+			continue
+		}
+		out = append(out, *t)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Number < out[j].Number })
+	c.JSON(http.StatusOK, gin.H{"data": out})
+}
+
+// POST /api/admin/queue/:id/ready — drink is made; call the customer.
+func (h *Handlers) TicketReady(c *gin.Context) {
+	h.Agrega.EmitFor("ticket.ready", "ticket", c.Param("id"), map[string]any{})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// POST /api/admin/queue/:id/done — handed over; clear from the board.
+func (h *Handlers) TicketDone(c *gin.Context) {
+	h.Agrega.EmitFor("ticket.done", "ticket", c.Param("id"), map[string]any{})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 // ── GET /api/admin/campaigns ──────────────────────────────────────────────────

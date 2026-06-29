@@ -3,6 +3,7 @@ package clients
 import (
 	"context"
 	"log/slog"
+	"net/url"
 	"time"
 )
 
@@ -24,19 +25,16 @@ func (a *AgregaZcy) Emit(action, targetEntity string, metadata map[string]any) {
 	a.EmitFor(action, targetEntity, "", metadata)
 }
 
-// EmitFor fires a single event to AgregaZcy POST /api/v1/internal/events with a
-// targetId (e.g. the member's phone) so per-target metrics can be derived later.
-// BEST-EFFORT: failures are logged + swallowed; runs in its own goroutine.
-func (a *AgregaZcy) EmitFor(action, targetEntity, targetID string, metadata map[string]any) {
+// eventBody builds the AgregaZcy IngestRequest. It uses camelCase keys
+// (targetEntity, targetId, sourceService, tenantId) + a free-form metadata bag.
+func (a *AgregaZcy) eventBody(action, targetEntity, targetID string, metadata map[string]any) map[string]any {
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
 	if _, ok := metadata["campaign"]; !ok {
 		metadata["campaign"] = a.campaign
 	}
-	// AgregaZcy's IngestRequest uses camelCase keys (targetEntity, targetId,
-	// sourceService, tenantId) + a free-form metadata bag.
-	body := map[string]any{
+	return map[string]any{
 		"action":        action,
 		"targetEntity":  targetEntity,
 		"targetId":      targetID,
@@ -44,6 +42,13 @@ func (a *AgregaZcy) EmitFor(action, targetEntity, targetID string, metadata map[
 		"sourceService": "arbc-membership",
 		"tenantId":      agregaTenant,
 	}
+}
+
+// EmitFor fires a single event to AgregaZcy POST /api/v1/internal/events with a
+// targetId (e.g. the member's phone) so per-target metrics can be derived later.
+// BEST-EFFORT: failures are logged + swallowed; runs in its own goroutine.
+func (a *AgregaZcy) EmitFor(action, targetEntity, targetID string, metadata map[string]any) {
+	body := a.eventBody(action, targetEntity, targetID, metadata)
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -53,6 +58,7 @@ func (a *AgregaZcy) EmitFor(action, targetEntity, targetID string, metadata map[
 	}()
 }
 
+
 // MemberMetric is the derived visit/spend rollup for one member (by phone).
 type MemberMetric struct {
 	Visits int
@@ -60,8 +66,10 @@ type MemberMetric struct {
 	Menu   string // the menu chosen on their (most recent) claim, if recorded
 }
 
-// visitEvents pulls the visit.recorded events for this tenant (high limit;
-// small-scale product). They carry the member phone as targetId.
+// visitEvents pulls the visit.recorded events for this tenant. They carry the
+// member phone as targetId. NOTE: AgregaZcy's internal query parses snake_case
+// params (tenant_id/action/page_size) — camelCase or `limit` are silently
+// ignored, so a large page_size is required or it caps at the default 50.
 func (a *AgregaZcy) visitEvents(ctx context.Context) ([]struct {
 	TargetID string         `json:"targetId"`
 	Metadata map[string]any `json:"metadata"`
@@ -74,11 +82,65 @@ func (a *AgregaZcy) visitEvents(ctx context.Context) ([]struct {
 			} `json:"events"`
 		} `json:"data"`
 	}
-	path := "/api/v1/internal/events?tenantId=" + agregaTenant + "&action=visit.recorded&limit=10000"
+	path := "/api/v1/internal/events?tenant_id=" + agregaTenant + "&action=visit.recorded&page_size=10000"
 	if err := a.h.do(ctx, "AgregaZcy", "GET", path, nil, &env); err != nil {
 		return nil, err
 	}
 	return env.Data.Events, nil
+}
+
+// ── Production queue (POS-style ticket board) ─────────────────────────────────
+// The free-cup claim enqueues a ticket; the production house works the board and
+// "calls" customers. The ticket lifecycle is modelled as neutral AgregaZcy events
+// (ticket.created → ticket.ready → ticket.done) keyed by ticketId (targetId), so
+// no new engine/store is needed and the engine stays brand-agnostic.
+
+// TicketEvent is one ticket lifecycle event read back from the timeline.
+type TicketEvent struct {
+	Action    string
+	TicketID  string
+	Timestamp string
+	Metadata  map[string]any
+}
+
+type ticketQueryEnvelope struct {
+	Data struct {
+		Events []struct {
+			Action    string         `json:"action"`
+			TargetID  string         `json:"targetId"`
+			Timestamp string         `json:"timestamp"`
+			Metadata  map[string]any `json:"metadata"`
+		} `json:"events"`
+		TotalCount int64 `json:"totalCount"`
+	} `json:"data"`
+}
+
+// CountTicketsSince returns how many ticket.created events exist at/after
+// startRFC3339 — used to assign the next daily-sequential queue number.
+func (a *AgregaZcy) CountTicketsSince(ctx context.Context, startRFC3339 string) (int, error) {
+	var env ticketQueryEnvelope
+	path := "/api/v1/internal/events?tenant_id=" + agregaTenant +
+		"&action=ticket.created&start=" + url.QueryEscape(startRFC3339) + "&page_size=1"
+	if err := a.h.do(ctx, "AgregaZcy", "GET", path, nil, &env); err != nil {
+		return 0, err
+	}
+	return int(env.Data.TotalCount), nil
+}
+
+// ListTickets returns all ticket lifecycle events (created/ready/done) for the
+// production board to fold into a live queue.
+func (a *AgregaZcy) ListTickets(ctx context.Context) ([]TicketEvent, error) {
+	var env ticketQueryEnvelope
+	path := "/api/v1/internal/events?tenant_id=" + agregaTenant +
+		"&target_entity=ticket&page_size=2000"
+	if err := a.h.do(ctx, "AgregaZcy", "GET", path, nil, &env); err != nil {
+		return nil, err
+	}
+	out := make([]TicketEvent, 0, len(env.Data.Events))
+	for _, e := range env.Data.Events {
+		out = append(out, TicketEvent{Action: e.Action, TicketID: e.TargetID, Timestamp: e.Timestamp, Metadata: e.Metadata})
+	}
+	return out, nil
 }
 
 // MemberStats derives per-member visit count + total spend + chosen menu from the

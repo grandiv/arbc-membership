@@ -43,6 +43,10 @@ func (h *Handlers) Register(r *gin.Engine) {
 			admin.GET("/menu-stats", h.MenuStats)
 			admin.GET("/campaigns", h.ListCampaigns)
 			admin.POST("/campaigns", h.CreateCampaign)
+			// Production-house queue board (POS-style ticket flow).
+			admin.GET("/queue", h.ProductionQueue)
+			admin.POST("/queue/:id/ready", h.TicketReady)
+			admin.POST("/queue/:id/done", h.TicketDone)
 		}
 	}
 }

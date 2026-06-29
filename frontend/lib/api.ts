@@ -14,10 +14,12 @@ export type Member = {
   order_count: number;
   total_spend: number;
   menu?: string; // menu yang dipilih saat klaim (diturunkan dari AgregaZcy)
+  queue_number?: number; // nomor antrian
+  queue_status?: "waiting" | "ready" | "done"; // status produksi terkini
 };
 
 // The closed set of free drinks the campaign gives away. Staff picks one.
-export const CAMPAIGN_MENUS = ["Kopi dan Enak", "Kopi dan Palem"] as const;
+export const CAMPAIGN_MENUS = ["Kopi dan Enak", "Kopi dan Palem", "Americano Arabica"] as const;
 export type CampaignMenu = (typeof CAMPAIGN_MENUS)[number];
 
 export type RegisterResult = {
@@ -31,6 +33,19 @@ export type ClaimResult = {
   member: Member;
   remaining?: number;
   menu?: string;
+  number?: number; // queue number (POS-style), shown to the barista
+  ticketId?: string;
+};
+
+// One open ticket on the production-house board.
+export type QueueTicket = {
+  ticketId: string;
+  number: number;
+  name: string;
+  menu: string;
+  phone: string;
+  status: "waiting" | "ready";
+  createdAt: string;
 };
 
 // Active campaign info.
@@ -91,6 +106,13 @@ export const api = {
     call<ClaimResult>("/api/claim", { method: "POST", body: JSON.stringify(input) }),
 
   menuStats: () => call<{ data: Record<string, number> }>("/api/admin/menu-stats"),
+
+  // Production-house queue board.
+  queue: () => call<{ data: QueueTicket[] }>("/api/admin/queue"),
+  ticketReady: (id: string) =>
+    call<{ ok: boolean }>(`/api/admin/queue/${encodeURIComponent(id)}/ready`, { method: "POST" }),
+  ticketDone: (id: string) =>
+    call<{ ok: boolean }>(`/api/admin/queue/${encodeURIComponent(id)}/done`, { method: "POST" }),
 
   campaign: () => call<Campaign>("/api/campaign"),
 
