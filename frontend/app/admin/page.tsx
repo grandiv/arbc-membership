@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import Header from "@/components/Header";
 import { api, ApiError, CAMPAIGN_MENUS, type Member } from "@/lib/api";
@@ -43,23 +43,43 @@ export default function DashboardPage() {
   const [form, setForm] = useState({ name: "200 Kopi Gratis", limit: "200" });
   const [creating, setCreating] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // load(silent) — manual/initial loads show the spinner; the 3s background
+  // poll refreshes quietly so the dashboard stays live without flicker.
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [m, c, ms] = await Promise.all([api.listMembers(), api.listCampaigns(), api.menuStats()]);
       setMembers(m.data ?? []);
       setCampaigns((c.data as Campaign[]) ?? []);
       setMenuStats(ms.data ?? {});
+      setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gagal memuat data.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
+  // Auto-refresh every 3s, paused while the tab is hidden (don't poll Atlas when
+  // nobody's looking); refresh immediately when the tab becomes visible again.
+  const POLL_MS = 3000;
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    load();
+    let alive = true;
+    const tick = async () => {
+      if (!document.hidden) await load(true);
+      if (alive) timer.current = setTimeout(tick, POLL_MS);
+    };
+    load(); // initial (with spinner)
+    timer.current = setTimeout(tick, POLL_MS);
+
+    const onVisible = () => { if (!document.hidden) load(true); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive = false;
+      if (timer.current) clearTimeout(timer.current);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [load]);
 
   // The active free-cup campaign (newest active one tagged kind=campaign).
@@ -96,7 +116,7 @@ export default function DashboardPage() {
       <main className="wrap" style={{ paddingTop: "2rem", paddingBottom: "4rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
           <h1 style={{ fontSize: "clamp(1.7rem, 5vw, 2.2rem)" }}>Dashboard Kampanye</h1>
-          <button className="btn btn--ghost btn--sm" onClick={load} disabled={loading} aria-label="Muat ulang">
+          <button className="btn btn--ghost btn--sm" onClick={() => load()} disabled={loading} aria-label="Muat ulang">
             <RefreshCw size={15} /> <span className="btn__label">Muat ulang</span>
           </button>
         </div>

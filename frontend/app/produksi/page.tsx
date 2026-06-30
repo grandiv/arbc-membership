@@ -29,17 +29,21 @@ export default function ProduksiPage() {
     }
   }, []);
 
-  // Self-rescheduling poll (avoids overlap if a request is slow).
+  // Self-rescheduling poll (avoids overlap if a request is slow), paused while
+  // the tab is hidden; refresh immediately when it becomes visible again.
   useEffect(() => {
     let alive = true;
     const tick = async () => {
-      await load();
+      if (!document.hidden) await load();
       if (alive) timer.current = setTimeout(tick, POLL_MS);
     };
     tick();
+    const onVisible = () => { if (!document.hidden) load(); };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
       if (timer.current) clearTimeout(timer.current);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [load]);
 
