@@ -43,6 +43,7 @@ export default function DashboardPage() {
   const [menuStats, setMenuStats] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false); // true after the FIRST successful load
   const [form, setForm] = useState({ name: "200 Kopi Gratis", limit: "200" });
   const [creating, setCreating] = useState(false);
   const [page, setPage] = useState(1);
@@ -58,6 +59,7 @@ export default function DashboardPage() {
       setCampaigns((c.data as Campaign[]) ?? []);
       setMenuStats(ms.data ?? {});
       setError(null);
+      setLoaded(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Gagal memuat data.");
     } finally {
@@ -87,13 +89,16 @@ export default function DashboardPage() {
     };
   }, [load]);
 
-  // The active free-cup campaign (newest active one tagged kind=campaign).
-  const active = campaigns
-    .filter((c) => c.is_active && c.metadata?.kind === "campaign")
+  // Headline stats are CUMULATIVE across every campaign promo (active + any
+  // deactivated ones), so a stray/retired campaign's cups still count and the
+  // numbers reconcile with Total Pendaftar + the menu tally.
+  const campaignPromos = campaigns.filter((c) => c.metadata?.kind === "campaign");
+  const active = campaignPromos
+    .filter((c) => c.is_active)
     .sort((a, b) => b.id.localeCompare(a.id))[0];
-  const cap = active?.usage?.max_total ?? 0;
-  const used = active?.usage_count ?? 0;
-  const remaining = cap > 0 ? Math.max(0, cap - used) : 0;
+  const used = campaignPromos.reduce((s, c) => s + (c.usage_count ?? 0), 0); // all cups ever given
+  const remaining = active?.usage?.max_total ? Math.max(0, active.usage.max_total - (active.usage_count ?? 0)) : 0;
+  const cap = used + remaining; // the true total capacity
 
   // Newest claim first (by queue number); members without a number sink to the
   // bottom. Sorted once per data change, then sliced for the current page.
@@ -248,8 +253,15 @@ export default function DashboardPage() {
               )}
             </section>
           </>
+        ) : !loaded ? (
+          // Haven't loaded yet (or a load error before any data) — DON'T show the
+          // create form here, or a transient deploy blip looks like "no campaign"
+          // and a click spawns a duplicate campaign. Just wait for real data.
+          <section className="card" style={{ padding: "1.6rem" }}>
+            <p className="muted">Memuat…</p>
+          </section>
         ) : (
-          // No active campaign → one-tap setup.
+          // Loaded successfully and genuinely no active campaign → one-tap setup.
           <section className="card" style={{ padding: "1.6rem" }}>
             <h3 style={{ marginBottom: "0.5rem" }}>Mulai kampanye</h3>
             <p className="muted" style={{ marginBottom: "1.25rem" }}>Belum ada kampanye aktif. Buat kampanye kopi gratis untuk mulai.</p>

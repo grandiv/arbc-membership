@@ -15,7 +15,9 @@ import (
 // metrics for this product. Clean separation: identity vs. analytics.
 func (h *Handlers) ListMembers(c *gin.Context) {
 	ctx := c.Request.Context()
-	list, err := h.Konsum.ListCustomers(ctx, c.Request.URL.RawQuery)
+	// Page through ALL customers — KonsumZcy caps a single request at 100, so a
+	// naive fetch silently truncates the dashboard once past 100 pendaftar.
+	list, err := h.Konsum.ListAllCustomers(ctx)
 	if err != nil {
 		fail(c, err)
 		return
@@ -182,6 +184,14 @@ func (h *Handlers) CreateCampaign(c *gin.Context) {
 	var req createCampaignRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": "INVALID_REQUEST", "message": err.Error()})
+		return
+	}
+	// Guard against a SECOND active campaign. Two campaigns each carry their own
+	// usage cap, which silently doubles the giveaway and splits the dashboard
+	// stats. Refuse if one is already running — the accidental KOPI* duplicate
+	// (created during a deploy blip) must not happen again.
+	if existing, err := h.Promo.ActiveCampaign(c.Request.Context()); err == nil && existing != nil {
+		c.JSON(http.StatusConflict, gin.H{"code": "CAMPAIGN_EXISTS", "message": "sudah ada kampanye aktif — nonaktifkan dulu sebelum membuat yang baru"})
 		return
 	}
 	perCustomer := req.PerCustomer

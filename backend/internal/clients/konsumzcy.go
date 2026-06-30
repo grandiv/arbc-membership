@@ -1,6 +1,9 @@
 package clients
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // KonsumZcy is the member store. Its Customer entity carries the data we collect
 // plus lifetime tracking (order_count → visits, total_spend → spend).
@@ -78,6 +81,28 @@ func (k *KonsumZcy) ListCustomers(ctx context.Context, rawQuery string) (*Custom
 		return nil, err
 	}
 	return &out, nil
+}
+
+// ListAllCustomers fetches EVERY customer by paging. KonsumZcy clamps `limit` to
+// 100, so a single request silently truncates once there are >100 members —
+// page through with offset until Total is collected.
+func (k *KonsumZcy) ListAllCustomers(ctx context.Context) (*CustomerList, error) {
+	const page = 100 // KonsumZcy's hard per-request cap
+	all := &CustomerList{}
+	for offset := 0; ; offset += page {
+		var out CustomerList
+		path := fmt.Sprintf("/api/customers?limit=%d&offset=%d", page, offset)
+		if err := k.h.do(ctx, "KonsumZcy", "GET", path, nil, &out); err != nil {
+			return nil, err
+		}
+		all.Data = append(all.Data, out.Data...)
+		all.Total = out.Total
+		if len(out.Data) == 0 || int64(len(all.Data)) >= out.Total {
+			break
+		}
+	}
+	all.Limit = len(all.Data)
+	return all, nil
 }
 
 // GetByPhone fetches a member profile by phone for the barista lookup.
