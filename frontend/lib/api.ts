@@ -125,8 +125,10 @@ export const api = {
   redeem: (input: { phone?: string; code?: string; name?: string; amount?: number }) =>
     call<RedeemResult>("/api/redeem", { method: "POST", body: JSON.stringify(input) }),
 
-  listMembers: () =>
-    call<{ data: Member[]; total: number }>("/api/admin/members"),
+  // Fetch pendaftar. The dashboard paginates client-side + exports the full set,
+  // so it pulls a high limit (campaign cap is ~200, well within one request).
+  listMembers: (limit = 1000) =>
+    call<{ data: Member[]; total: number }>(`/api/admin/members?limit=${limit}`),
 
   listCampaigns: () =>
     call<{ data: unknown[] }>("/api/admin/campaigns"),
