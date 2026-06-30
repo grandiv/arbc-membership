@@ -2,6 +2,7 @@ package clients
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/url"
 	"time"
@@ -66,27 +67,53 @@ type MemberMetric struct {
 	Menu   string // the menu chosen on their (most recent) claim, if recorded
 }
 
-// visitEvents pulls the visit.recorded events for this tenant. They carry the
-// member phone as targetId. NOTE: AgregaZcy's internal query parses snake_case
-// params (tenant_id/action/page_size) — camelCase or `limit` are silently
-// ignored, so a large page_size is required or it caps at the default 50.
-func (a *AgregaZcy) visitEvents(ctx context.Context) ([]struct {
-	TargetID string         `json:"targetId"`
-	Metadata map[string]any `json:"metadata"`
-}, error) {
-	var env struct {
-		Data struct {
-			Events []struct {
-				TargetID string         `json:"targetId"`
-				Metadata map[string]any `json:"metadata"`
-			} `json:"events"`
-		} `json:"data"`
+// rawEvent is one event as read back from AgregaZcy's timeline.
+type rawEvent struct {
+	Action    string         `json:"action"`
+	TargetID  string         `json:"targetId"`
+	Timestamp string         `json:"timestamp"`
+	Metadata  map[string]any `json:"metadata"`
+}
+
+// agregaPageSize is AgregaZcy's hard cap per query: it silently clamps page_size
+// to 200 regardless of what we ask. So any read that can exceed 200 events MUST
+// paginate — see fetchAllEvents. (At 1 event/claim that's fine until 200 claims;
+// ticket reads hit it at ~66 claims since each claim emits 3 ticket events.)
+const agregaPageSize = 200
+
+// fetchAllEvents pages through every event matching filterQuery (e.g.
+// "action=visit.recorded" or "target_entity=ticket") until totalCount is
+// collected, defeating AgregaZcy's 200-per-page cap. tenant_id is added here.
+func (a *AgregaZcy) fetchAllEvents(ctx context.Context, filterQuery string) ([]rawEvent, error) {
+	var all []rawEvent
+	for page := 1; ; page++ {
+		var env struct {
+			Data struct {
+				Events     []rawEvent `json:"events"`
+				TotalCount int64      `json:"totalCount"`
+			} `json:"data"`
+		}
+		path := fmt.Sprintf("/api/v1/internal/events?tenant_id=%s&%s&page_size=%d&page=%d",
+			agregaTenant, filterQuery, agregaPageSize, page)
+		if err := a.h.do(ctx, "AgregaZcy", "GET", path, nil, &env); err != nil {
+			return nil, err
+		}
+		all = append(all, env.Data.Events...)
+		// Stop when we've collected everything, or a page came back empty (guard
+		// against an off-by-one or a shrinking dataset between pages).
+		if len(env.Data.Events) == 0 || int64(len(all)) >= env.Data.TotalCount {
+			break
+		}
 	}
-	path := "/api/v1/internal/events?tenant_id=" + agregaTenant + "&action=visit.recorded&page_size=10000"
-	if err := a.h.do(ctx, "AgregaZcy", "GET", path, nil, &env); err != nil {
-		return nil, err
-	}
-	return env.Data.Events, nil
+	return all, nil
+}
+
+// visitEvents pulls ALL visit.recorded events for this tenant (paginated). They
+// carry the member phone as targetId. NOTE: AgregaZcy's internal query parses
+// snake_case params (tenant_id/action/page_size); camelCase or `limit` are
+// silently ignored.
+func (a *AgregaZcy) visitEvents(ctx context.Context) ([]rawEvent, error) {
+	return a.fetchAllEvents(ctx, "action=visit.recorded")
 }
 
 // ── Production queue (POS-style ticket board) ─────────────────────────────────
@@ -127,17 +154,16 @@ func (a *AgregaZcy) CountTicketsSince(ctx context.Context, startRFC3339 string) 
 	return int(env.Data.TotalCount), nil
 }
 
-// ListTickets returns all ticket lifecycle events (created/ready/done) for the
-// production board to fold into a live queue.
+// ListTickets returns ALL ticket lifecycle events (created/ready/done) for the
+// production board to fold into a live queue. Paginated — each claim emits 3
+// ticket events, so this exceeds AgregaZcy's 200/page cap at ~66 claims.
 func (a *AgregaZcy) ListTickets(ctx context.Context) ([]TicketEvent, error) {
-	var env ticketQueryEnvelope
-	path := "/api/v1/internal/events?tenant_id=" + agregaTenant +
-		"&target_entity=ticket&page_size=2000"
-	if err := a.h.do(ctx, "AgregaZcy", "GET", path, nil, &env); err != nil {
+	events, err := a.fetchAllEvents(ctx, "target_entity=ticket")
+	if err != nil {
 		return nil, err
 	}
-	out := make([]TicketEvent, 0, len(env.Data.Events))
-	for _, e := range env.Data.Events {
+	out := make([]TicketEvent, 0, len(events))
+	for _, e := range events {
 		out = append(out, TicketEvent{Action: e.Action, TicketID: e.TargetID, Timestamp: e.Timestamp, Metadata: e.Metadata})
 	}
 	return out, nil
